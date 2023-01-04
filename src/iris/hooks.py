@@ -10,6 +10,9 @@ class SparkHooks:
         defined in project's conf folder.
         """
 
+        if SparkSession.getActiveSession() != None:
+            return # spark has been already initialized
+
         # Load the spark configuration in spark.yaml using the config loader
         parameters = context.config_loader.get("spark*", "spark*/**")
         spark_conf = SparkConf().setAll(parameters.items())

@@ -10,6 +10,8 @@ import mlflow
 import numpy as np
 import pandas as pd
 from pyspark.sql import DataFrame
+from sklearn.tree import DecisionTreeClassifier
+from sklearn import metrics
 
 
 def split_data(data: DataFrame, train_fraction: float, target_column: str) -> Tuple:
@@ -32,7 +34,7 @@ def split_data(data: DataFrame, train_fraction: float, target_column: str) -> Tu
     y_train = data_train.select(target_column)
     y_test = data_test.select(target_column)
 
-    return X_train, X_test, y_train, y_test
+    return X_train.toPandas(), X_test.toPandas(), y_train.toPandas(), y_test.toPandas()
 
 
 def make_predictions(
@@ -49,17 +51,14 @@ def make_predictions(
         y_pred: Prediction of the target variable.
     """
 
-    X_train_numpy = X_train.to_numpy()
-    X_test_numpy = X_test.to_numpy()
+    #X_train_numpy = X_train.to_numpy()
+    #X_test_numpy = X_test.to_numpy()
 
-    squared_distances = np.sum(
-        (X_train_numpy[:, None, :] - X_test_numpy[None, :, :]) ** 2, axis=-1
-    )
-    nearest_neighbour = squared_distances.argmin(axis=0)
-    y_pred = y_train.iloc[nearest_neighbour]
-    y_pred.index = X_test.index
+    mod_dt = DecisionTreeClassifier(max_depth = 3, random_state = 1)
+    mod_dt.fit(X_train,y_train)
+    y_pred = mod_dt.predict(X_test)
 
-    return y_pred
+    return mod_dt, y_pred
 
 
 def report_accuracy(y_pred: pd.Series, y_test: pd.Series):
@@ -69,7 +68,7 @@ def report_accuracy(y_pred: pd.Series, y_test: pd.Series):
         y_pred: Predicted target.
         y_test: True target.
     """
-    accuracy = (y_pred == y_test).sum() / len(y_test)
+    accuracy = metrics.accuracy_score(y_pred, y_test)
     logger = logging.getLogger(__name__)
     mlflow.log_metric("accuracy", accuracy)
     logger.info("Model has an accuracy of %.3f on test data.", accuracy)
